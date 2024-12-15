@@ -1,5 +1,5 @@
-const { app, BrowserWindow } = require('electron');
-const path = require('node:path');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -7,45 +7,78 @@ if (require('electron-squirrel-startup')) {
 }
 
 const createWindow = () => {
-  // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+      // Make sure this path is correct
       webSecurity: false,
-      nodeIntegration: true,
-      contextIsolation: false,
+
+      nodeIntegration: false,
+      contextIsolation: true,  // Security: Allow proper isolation between processes
     },
     autoHideMenuBar: true,
   });
 
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://api.amazon.com https://sellingpartnerapi-na.amazon.com; style-src 'self' 'unsafe-inline';",
-        ],
+        'Content-Security-Policy': null,
       },
     });
   });
 
+
   // and load the index.html of the app.
+
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
-  // Open the DevTools.
+  // Open the DevTools (optional for debugging)
   // mainWindow.webContents.openDevTools();
 };
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+// IPC Handler for the file dialog
+ipcMain.handle("dialog:openFile", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile"],
+  });
+  return result.filePaths;
+});
+
+ipcMain.handle("dialog:goBack", async () => {
+  const mainWindow = BrowserWindow.getAllWindows()[0]; // Get the main window
+  mainWindow.focus();  // Bring the main window to the front
+  const pdfWindow = BrowserWindow.getFocusedWindow();
+  if (pdfWindow) {
+    pdfWindow.close(); // Close the PDF window
+  }
+  return { status: 'back' };
+});
+
+ipcMain.handle("dialog:openPDF", async (event, filePath) => {
+  const pdfWindow = new BrowserWindow({
+    width: 800,
+    height: 500,
+    webPreferences: {
+      webSecurity: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+
+  pdfWindow.loadURL(`file://${filePath}`);
+
+
+  return { status: 'success' };
+});
+
 app.whenReady().then(() => {
   createWindow();
 
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -53,14 +86,8 @@ app.whenReady().then(() => {
   });
 });
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.

@@ -15,9 +15,9 @@ export default function HomePage() {
         </div>
         <nav className="inline-flex rounded-lg bg-white bg-opacity-20 p-1">
           {[
-            { name: "Profits", route: "/profits" },
-            { name: "Profit calculator", route: "/profit-calculator" },
-            { name: "Inventory", route: "/inventory" },
+            // { name: "Sales Orders", route: "/profits" },
+            { name: "Sales Orders", route: "/profit-calculator" },
+            { name: "Purchase Orders", route: "/inventory" },
             { name: "Payments", route: "/payments" },
           ].map((tab, index) => (
             <Link

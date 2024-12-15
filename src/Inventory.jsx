@@ -22,6 +22,35 @@ export default function Inventory() {
     ),
   ]);
 
+  const handleFileUpload = async (id) => {
+    try {
+      // Open the file dialog using the exposed API from preload.js
+      const selectedFile = await window.electronAPI.openFileDialog();
+
+      if (selectedFile && selectedFile.length > 0) {
+        // Store the file path in the state
+        const filePath = selectedFile[0];
+        console.log("File selected:", filePath);
+        const updatedRows = rows.map((row) => {
+          if (row.id === id) {
+            return { ...row, invoicePath: filePath };
+          } else {
+            return row;
+          }
+        });
+        setRows(updatedRows);
+        localStorage.setItem("rows", JSON.stringify(updatedRows));
+        // Send the file path to the main process to open the PDF
+      }
+    } catch (error) {
+      console.error("Error opening file dialog:", error);
+    }
+  };
+
+  const handleViewInvoice = (filePath) => {
+    window.electronAPI.openPDF(filePath);
+  };
+
   const columns = [
     { field: "id", headerName: "Sr No", width: 80 },
     { field: "item", headerName: "Item", width: 200, editable: true },
@@ -125,11 +154,46 @@ export default function Inventory() {
         ></Button>
       ),
     },
+    {
+      field: "invoicePath",
+      headerName: "Invoice",
+      width: 240,
+      editable: true,
+      renderCell: (params) =>
+        params?.row?.invoicePath ? (
+          <div>
+            <Button onClick={() => handleViewInvoice(params.row.invoicePath)}>
+              View
+            </Button>
+            <Button
+              endIcon={<DeleteIcon color="error" />}
+              onClick={() => handleDeletePdf(params.row.id)}
+            ></Button>
+          </div>
+        ) : (
+          <Button onClick={() => handleFileUpload(params.row.id)}>
+            upload
+          </Button>
+        ),
+    },
   ];
 
   const handleDeleteRow = (id) => {
     // Filter out the row with the given id
     const updatedRows = rows.filter((row) => row.id !== id);
+    setRows(updatedRows);
+    localStorage.setItem("rows", JSON.stringify(updatedRows)); // Update localStorage
+  };
+
+  const handleDeletePdf = (id) => {
+    // Filter out the row with the given id
+    const updatedRows = rows.map((row) => {
+      if (row.id == id) {
+        return { ...row, invoicePath: "" };
+      } else {
+        return row;
+      }
+    });
     setRows(updatedRows);
     localStorage.setItem("rows", JSON.stringify(updatedRows)); // Update localStorage
   };
@@ -145,6 +209,7 @@ export default function Inventory() {
       amountPerUnit: "",
       paidWith: "",
       ASIN: "",
+      invoicePath: "",
     };
     const updatedRows = [...rows, newRow];
     setRows(updatedRows);
